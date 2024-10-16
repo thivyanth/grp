@@ -1,22 +1,19 @@
 import torch
 import torch.nn as nn
 from .attention import MultiHeadAttention
+from .attention import FeedFoward
 
 class TransformerBlock(nn.Module):
     def __init__(self, n_embd, n_head, dropout):
         super().__init__()
-        self.attention = MultiHeadAttention(n_embd, n_head, dropout)
-        self.feed_forward = nn.Sequential(
-            nn.Linear(n_embd, 4 * n_embd),
-            nn.GELU(),
-            nn.Linear(4 * n_embd, n_embd),
-            nn.Dropout(dropout)
-        )
+        head_size = n_embd // n_head
+        self.attention = MultiHeadAttention(n_head, head_size, n_embd, dropout)
+        self.feed_forward = FeedFoward(n_embd, dropout)
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
 
     def forward(self, x, mask=None):
-        x = x + self.attention(self.ln1(x), mask)
+        x = x + self.attention(self.ln1(x))
         x = x + self.feed_forward(self.ln2(x))
         return x
 
