@@ -11,24 +11,24 @@ I'm working on resolving issues, understanding and improving the model.
 ## Getting Started
 
 1. Clone the repository
-2. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-3. Create and activate a conda environment:
+2. Create and activate a conda environment:
    ```
    conda create -n grp python=3.10
    conda activate grp
    ```
-4. Install PyTorch with CUDA support:
+3. Install PyTorch with CUDA support:
    ```
    conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
    ```
-5. Install additional dependencies:
+4. Install additional dependencies:
    ```
    pip install torch==2.4.0
    pip install hydra-submitit-launcher --upgrade
-   pip install milatools==0.1.14 decorator==4.4.2 moviepy==1.0.3
+   pip install milatools decorator==4.4.2 moviepy==1.0.3
+   ```
+5. Install the required project dependencies:
+   ```
+   pip install -r requirements.txt
    ```
 6. Run the main script:
    ```

@@ -49,6 +49,10 @@ class GRPModel(nn.Module):
         return nn.Parameter(torch.randn(1, max_length, self.cfg.embed_dim))
 
 class ImageProcessor(nn.Module):
+    """
+    ImageProcessor is responsible for processing the image data into tokens.
+    It divides the image into patches and projects them into the embedding space.
+    """
     def __init__(self, cfg):
         super().__init__()
         self.patch_size = cfg.model.patch_size

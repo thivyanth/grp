@@ -44,7 +44,7 @@ training:
 
 # Data configuration
 data:
-  dataset: "your_dataset_name"  # Replace with your actual dataset name
+  dataset: EleutherAI/cifarnet
   image_shape: [64, 64, 3]
   block_size: 32  # Maximum length for text goals
 
