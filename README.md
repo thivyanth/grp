@@ -1,12 +1,6 @@
 # Generalist Robotics Policy (GRP) Project
 
-This project implements a Generalist Robotics Policy (GRP) using a Vision Transformer (ViT) architecture. The model is designed to process multiple input types, including images, text goals, and goal images, to generate continuous action outputs for robotic control.
-
-## Current Status
-
-**Note: This project is currently in the debugging phase.**
-
-I'm working on resolving issues, understanding and improving the model.
+This project is my implementation of a Generalist Robotics Policy (GRP) using a Vision Transformer (ViT) architecture. Inspired by existing approaches but built from the ground up, this model processes multiple input types such as images, text goals, and goal images to generate continuous action outputs for robotic control. While drawing inspiration from established concepts, I've recreated this implementation to deepen my understanding of GRP architectures. This is basically a mini and very basic version of [octo](https://github.com/octo-models/octo).
 
 ## Getting Started
 
@@ -24,7 +18,7 @@ I'm working on resolving issues, understanding and improving the model.
    ```
    pip install torch==2.4.0
    pip install hydra-submitit-launcher --upgrade
-   pip install milatools decorator==4.4.2 moviepy==1.0.3
+   pip install decorator==4.4.2 moviepy==1.0.3
    ```
 5. Install the required project dependencies:
    ```
@@ -37,15 +31,17 @@ I'm working on resolving issues, understanding and improving the model.
 
 ## TODO
 
-- [ ] Complete debugging of the main training loop
-- [ ] Implement evaluation in a simulation environment
-- [ ] Implement logging and visualization tools
+- [x] Complete debugging of the main training loop
+- [x] Create evaluation in a simulation environment
+- [ ] Debug evaluation in a simulation environment
+- [ ] Visualization tools
 
 ## Extra Challenges
 
 - [ ] Incorporate Diffusion Models
-- [ ] Use Advanced Text Tokenization
+- [ ] Use Text Tokenization like BPE
 
 ## Acknowledgements
 - [mini-GRP](https://github.com/milarobotlearningcourse/mini-grp)
+- [octo](https://github.com/octo-models/octo)
 - [nano-GPT](https://github.com/karpathy/nanoGPT)
