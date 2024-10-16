@@ -11,8 +11,8 @@ class MultiHeadAttention(nn.Module):
         self.proj = nn.Linear(n_embd, n_embd)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x):
-        out = torch.cat([h(x) for h in self.heads], dim=-1)
+    def forward(self, x, mask=None):
+        out = torch.cat([h(x, mask) for h in self.heads], dim=-1)
         out = self.dropout(self.proj(out))
         return out
 
@@ -36,8 +36,8 @@ class Head(nn.Module):
         q = self.query(x) # (B,T,C)
         # compute attention scores ("affinities")
         wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) -> (B, T, T)
-        ### Block masked attention
-        wei = wei.masked_fill(mask == 0, float('-inf')) # (B, T, T)
+        if mask is not None:
+            wei = wei.masked_fill(mask == 0, float('-inf'))
         wei = F.softmax(wei, dim=-1) # (B, T, T)
         wei = self.dropout(wei)
         # perform the weighted aggregation of the values

@@ -13,7 +13,7 @@ class TransformerBlock(nn.Module):
         self.ln2 = nn.LayerNorm(n_embd)
 
     def forward(self, x, mask=None):
-        x = x + self.attention(self.ln1(x))
+        x = x + self.attention(self.ln1(x), mask)
         x = x + self.feed_forward(self.ln2(x))
         return x
 

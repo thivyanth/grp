@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from .transformer import TransformerBlock
 from .utils import calc_positional_embeddings  # Adjust the import path as needed
+import torch.nn.functional as F
 
 class GRPModel(nn.Module):
     def __init__(self, cfg):
@@ -32,7 +33,7 @@ class GRPModel(nn.Module):
         
         self.register_buffer('positional_embedding', positional_embeddings.unsqueeze(0))
 
-    def forward(self, images, goals, goal_images):
+    def forward(self, images, goals, goal_images, targets=None):
         # Process inputs
         img_tokens = self.image_patch_embedder(images)
         goal_img_tokens = self.image_patch_embedder(goal_images)
@@ -42,14 +43,39 @@ class GRPModel(nn.Module):
         tokens = torch.cat([img_tokens, goal_tokens, goal_img_tokens], dim=1)
         tokens = tokens + self.positional_embedding[:, :tokens.size(1), :]
 
-        # Apply transformer blocks
+        # Create mask
+        mask = self.create_mask(img_tokens, goal_tokens, goal_img_tokens)
+
+        # Apply transformer blocks with mask
         for block in self.transformer_blocks:
-            tokens = block(tokens)
+            tokens = block(tokens, mask)
 
         # Get output from the first token
         output = self.output_layer(tokens[:, 0])
 
+        if targets is not None:
+            loss = F.mse_loss(output, targets)
+            return output, loss
         return output
+
+    def create_mask(self, img_tokens, goal_tokens, goal_img_tokens):
+        batch_size = img_tokens.size(0)
+        img_len = img_tokens.size(1)
+        goal_len = goal_tokens.size(1)
+        goal_img_len = goal_img_tokens.size(1)
+        total_len = img_len + goal_len + goal_img_len
+
+        mask = torch.ones((batch_size, total_len), device=self.cfg.device)
+
+        if self.training:
+            # Randomly mask goal tokens or goal image tokens
+            rand = torch.rand(1).item()
+            if rand > 0.66:
+                mask[:, img_len:img_len+goal_len] = 0  # Mask goal string
+            elif rand > 0.33:
+                mask[:, img_len+goal_len:] = 0  # Mask goal image
+
+        return mask.unsqueeze(1)  # Add dimension for attention heads
 
 class ImagePatchEmbedder(nn.Module):
     """

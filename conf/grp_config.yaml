@@ -72,4 +72,4 @@ checkpointing:
   save_interval: 1000
 
 # Debug mode
-debug: false
+debug: true

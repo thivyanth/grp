@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
+import torchvision.transforms as transforms
 
 class RoboticsDataset(Dataset):
     def __init__(self, data, cfg):
@@ -45,13 +46,15 @@ def prepare_data(cfg):
     action_mean = np.mean(dataset_tmp['action'], axis=0)
     action_std = np.std(dataset_tmp['action'], axis=0) * 1.5 + 0.001
 
-    encode_state = lambda af: ((af/(255.0)*2.0)-1.0).astype(np.float32)
+    resize = transforms.Resize((cfg.data.image_shape[0], cfg.data.image_shape[1]))
+    encode_state = lambda af: resize(transforms.ToPILImage()(((af/255.0)*2.0)-1.0))
+    
     encode_action = lambda af: (((af - action_mean) / (action_std))).astype(np.float32)
 
     dataset_processed = {
-        "img": torch.tensor(encode_state(dataset_tmp["img"])),
+        "img": torch.stack([transforms.ToTensor()(encode_state(img)) for img in dataset_tmp["img"]]),
         "action": torch.tensor(encode_action(dataset_tmp["action"]), dtype=torch.float),
-        "goal_img": torch.tensor(encode_state(dataset_tmp["goal_img"])),
+        "goal_img": torch.stack([transforms.ToTensor()(encode_state(img)) for img in dataset_tmp["goal_img"]]),
         "goal": torch.tensor([encode_txt(goal[:cfg.data.block_size]) for goal in dataset_tmp["goal"]])
     }
 
