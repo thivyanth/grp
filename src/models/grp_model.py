@@ -1,105 +1,58 @@
 import torch
 import torch.nn as nn
-from .transformer import TransformerBlock
-from .utils import calc_positional_embeddings  # Adjust the import path as needed
 import torch.nn.functional as F
+from .transformer import Block
+from data_loader import get_patches_fast
+from models.utils import calc_positional_embeddings
 
-class GRPModel(nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-        self.cfg = cfg
+class GRP(nn.Module):
+    def __init__(self, dataset, cfg, mlp_ratio=4):
+        super(GRP, self).__init__()
+        self._dataset = dataset
+        self._cfg = cfg
+        self.patch_size = (self._cfg.image_shape[0] / self._cfg.n_patches, self._cfg.image_shape[1] / self._cfg.n_patches)
+        self.register_buffer('positional_embeddings', calc_positional_embeddings(1 + self._cfg.n_patches ** 2 + self._cfg.block_size + self._cfg.n_patches ** 2, cfg.n_embd), persistent=False)
 
-        # Embeddings
-        self.token_embedding = nn.Embedding(cfg.data.vocab_size, cfg.model.embed_dim)
-        self.init_positional_embedding()
+        self.token_embedding_table = nn.Embedding(cfg.vocab_size, cfg.n_embd)
+        self.class_tokens = nn.Parameter(torch.rand(1, cfg.n_embd))
 
-        # Image processing
-        self.image_patch_embedder = ImagePatchEmbedder(cfg)
+        self.input_d = int(self._cfg.image_shape[2] * self.patch_size[0] * self.patch_size[1])
+        self.lin_map = nn.Linear(self.input_d, self._cfg.n_embd, bias=False)
+        self.blocks = nn.ModuleList([Block(self._cfg.n_embd, self._cfg.n_head, dropout=self._cfg.dropout) for _ in range(self._cfg.n_blocks)])
+        self.mlp = nn.Sequential(
+            nn.Linear(self._cfg.n_embd, self._cfg.action_bins),
+        )
 
-        # Classification token
-        self.class_token = nn.Parameter(torch.randn(1, 1, cfg.model.embed_dim))
-
-        # Transformer blocks
-        self.transformer_blocks = nn.ModuleList([
-            TransformerBlock(cfg.model.embed_dim, cfg.model.num_heads, cfg.model.dropout)
-            for _ in range(cfg.model.num_blocks)
-        ])
-
-        # Output layer
-        self.output_layer = nn.Linear(cfg.model.embed_dim, cfg.action_dim)
-
-    def init_positional_embedding(self):
-        max_length = self.cfg.data.block_size + (self.cfg.data.image_shape[0] // self.cfg.model.patch_size) ** 2 * 2 + 1  # +1 for class token
-        d = self.cfg.model.embed_dim
+    def forward(self, images, goals, goal_imgs, targets=None):
+        n, c, h, w = images.shape
+        B, T = goals.shape
+        patches = get_patches_fast(images)
+        patches_g = get_patches_fast(goal_imgs)
+        goals_e = self.token_embedding_table(goals)
         
-        positional_embeddings = calc_positional_embeddings(max_length, d)
+        out = self.lin_map(patches)
+        out_g = self.lin_map(patches_g)
         
-        self.register_buffer('positional_embedding', positional_embeddings.unsqueeze(0))
+        out = torch.cat((self.class_tokens.expand(n, 1, -1), out, goals_e, out_g), dim=1)
+        out = out + self.positional_embeddings.repeat(n, 1, 1)
 
-    def forward(self, images, goals, goal_images, targets=None):
-        # Process inputs
-        img_tokens = self.image_patch_embedder(images)
-        goal_img_tokens = self.image_patch_embedder(goal_images)
-        goal_tokens = self.token_embedding(goals)
+        mask = torch.ones((1 + c + T + c, ), device=self._cfg.device)
+        if targets is None:
+            pass
+        elif (torch.rand(1)[0] > 0.66):  
+            mask[1 + c: 1 + c+ T] = torch.zeros((1,T), device=self._cfg.device)
+        elif (torch.rand(1)[0] > 0.33):
+            mask[1 + c + T: 1 + c + T + c] = torch.zeros((1,c), device=self._cfg.device)
+        
+        for block in self.blocks:
+            out = block(out, mask)
 
-        # Add classification token
-        class_tokens = self.class_token.expand(images.shape[0], -1, -1)
-
-        # Combine tokens
-        tokens = torch.cat([class_tokens, img_tokens, goal_tokens, goal_img_tokens], dim=1)
-        tokens = tokens + self.positional_embedding[:, :tokens.size(1), :]
-
-        # Create mask
-        mask = self.create_mask(img_tokens, goal_tokens, goal_img_tokens)
-
-        # Apply transformer blocks with mask
-        for block in self.transformer_blocks:
-            tokens = block(tokens, mask)
-
-        # Get output from the classification token
-        output = self.output_layer(tokens[:, 0])
-
-        if targets is not None:
-            loss = F.mse_loss(output, targets)
-            return output, loss
+        out = out[:, 0]
+        out = self.mlp(out)
+        
+        if targets is None:
+            loss = None
         else:
-            return output
-
-    def create_mask(self, img_tokens, goal_tokens, goal_img_tokens):
-        batch_size = img_tokens.size(0)
-        img_len = img_tokens.size(1)
-        goal_len = goal_tokens.size(1)
-        goal_img_len = goal_img_tokens.size(1)
-        total_len = 1 + img_len + goal_len + goal_img_len  # +1 for class token
-
-        mask = torch.ones((batch_size, total_len), device=self.cfg.device)
-
-        if self.training:
-            # Randomly mask goal tokens or goal image tokens
-            rand = torch.rand(1).item()
-            if rand > 0.66:
-                mask[:, 1+img_len:1+img_len+goal_len] = 0  # Mask goal string
-            elif rand > 0.33:
-                mask[:, 1+img_len+goal_len:] = 0  # Mask goal image
-
-        return mask.unsqueeze(1).unsqueeze(1)  # Add dimensions for attention heads
-
-class ImagePatchEmbedder(nn.Module):
-    """
-    ImagePatchEmbedder is responsible for processing the image data into tokens.
-    It divides the image into patches and projects them into the embedding space.
-    """
-    def __init__(self, cfg):
-        super().__init__()
-        self.patch_size = cfg.model.patch_size
-        self.image_shape = cfg.data.image_shape
-        self.num_patches = (self.image_shape[0] // self.patch_size) ** 2
-        self.projection = nn.Linear(3 * self.patch_size ** 2, cfg.model.embed_dim)
-
-    def forward(self, x):
-        # x: (batch_size, 3, H, W)
-        batch_size = x.shape[0]
-        patches = x.unfold(2, self.patch_size, self.patch_size).unfold(3, self.patch_size, self.patch_size)
-        patches = patches.permute(0, 2, 3, 1, 4, 5).contiguous()
-        patches = patches.view(batch_size, self.num_patches, -1)
-        return self.projection(patches)
+            B, C = out.shape
+            loss = F.mse_loss(out, targets)
+        return (out, loss)
