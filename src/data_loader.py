@@ -41,6 +41,7 @@ def prepare_data(cfg):
     cfg.itos = {i: ch for i, ch in enumerate(chars)}
 
     encode_txt = lambda s: [cfg.stoi[c] for c in s[:cfg.data.block_size]]
+    decode_txt = lambda l: ''.join([cfg.itos[i] for i in l])
     
     # Calculate action mean and std
     action_mean = np.mean(dataset_tmp['action'], axis=0)
@@ -50,6 +51,7 @@ def prepare_data(cfg):
     encode_state = lambda af: resize(transforms.ToPILImage()(((af/255.0)*2.0)-1.0))
     
     encode_action = lambda af: (((af - action_mean) / (action_std))).astype(np.float32)
+    decode_action = lambda binN: (binN * action_std) + action_mean  # Undo mapping to [-1, 1]
 
     dataset_processed = {
         "img": torch.stack([transforms.ToTensor()(encode_state(img)) for img in dataset_tmp["img"]]),
@@ -57,7 +59,9 @@ def prepare_data(cfg):
         "goal_img": torch.stack([transforms.ToTensor()(encode_state(img)) for img in dataset_tmp["goal_img"]]),
         "goal": torch.tensor([encode_txt(goal[:cfg.data.block_size]) for goal in dataset_tmp["goal"]])
     }
-
+    
+    del dataset_tmp
+    
     # Create datasets
     train_dataset = RoboticsDataset(dataset_processed, cfg)
     val_dataset = RoboticsDataset(dataset_processed, cfg)  # In practice, use a separate validation set

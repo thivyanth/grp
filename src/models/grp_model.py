@@ -16,6 +16,9 @@ class GRPModel(nn.Module):
         # Image processing
         self.image_patch_embedder = ImagePatchEmbedder(cfg)
 
+        # Classification token
+        self.class_token = nn.Parameter(torch.randn(1, 1, cfg.model.embed_dim))
+
         # Transformer blocks
         self.transformer_blocks = nn.ModuleList([
             TransformerBlock(cfg.model.embed_dim, cfg.model.num_heads, cfg.model.dropout)
@@ -26,7 +29,7 @@ class GRPModel(nn.Module):
         self.output_layer = nn.Linear(cfg.model.embed_dim, cfg.action_dim)
 
     def init_positional_embedding(self):
-        max_length = self.cfg.data.block_size + (self.cfg.data.image_shape[0] // self.cfg.model.patch_size) ** 2 * 2
+        max_length = self.cfg.data.block_size + (self.cfg.data.image_shape[0] // self.cfg.model.patch_size) ** 2 * 2 + 1  # +1 for class token
         d = self.cfg.model.embed_dim
         
         positional_embeddings = calc_positional_embeddings(max_length, d)
@@ -39,8 +42,11 @@ class GRPModel(nn.Module):
         goal_img_tokens = self.image_patch_embedder(goal_images)
         goal_tokens = self.token_embedding(goals)
 
+        # Add classification token
+        class_tokens = self.class_token.expand(images.shape[0], -1, -1)
+
         # Combine tokens
-        tokens = torch.cat([img_tokens, goal_tokens, goal_img_tokens], dim=1)
+        tokens = torch.cat([class_tokens, img_tokens, goal_tokens, goal_img_tokens], dim=1)
         tokens = tokens + self.positional_embedding[:, :tokens.size(1), :]
 
         # Create mask
@@ -50,20 +56,21 @@ class GRPModel(nn.Module):
         for block in self.transformer_blocks:
             tokens = block(tokens, mask)
 
-        # Get output from the first token
+        # Get output from the classification token
         output = self.output_layer(tokens[:, 0])
 
         if targets is not None:
             loss = F.mse_loss(output, targets)
             return output, loss
-        return output
+        else:
+            return output
 
     def create_mask(self, img_tokens, goal_tokens, goal_img_tokens):
         batch_size = img_tokens.size(0)
         img_len = img_tokens.size(1)
         goal_len = goal_tokens.size(1)
         goal_img_len = goal_img_tokens.size(1)
-        total_len = img_len + goal_len + goal_img_len
+        total_len = 1 + img_len + goal_len + goal_img_len  # +1 for class token
 
         mask = torch.ones((batch_size, total_len), device=self.cfg.device)
 
@@ -71,11 +78,11 @@ class GRPModel(nn.Module):
             # Randomly mask goal tokens or goal image tokens
             rand = torch.rand(1).item()
             if rand > 0.66:
-                mask[:, img_len:img_len+goal_len] = 0  # Mask goal string
+                mask[:, 1+img_len:1+img_len+goal_len] = 0  # Mask goal string
             elif rand > 0.33:
-                mask[:, img_len+goal_len:] = 0  # Mask goal image
+                mask[:, 1+img_len+goal_len:] = 0  # Mask goal image
 
-        return mask.unsqueeze(1)  # Add dimension for attention heads
+        return mask.unsqueeze(1).unsqueeze(1)  # Add dimensions for attention heads
 
 class ImagePatchEmbedder(nn.Module):
     """

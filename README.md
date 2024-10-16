@@ -45,3 +45,7 @@ I'm working on resolving issues, understanding and improving the model.
 
 - [ ] Incorporate Diffusion Models
 - [ ] Use Advanced Text Tokenization
+
+## Acknowledgements
+- [mini-GRP](https://github.com/milarobotlearningcourse/mini-grp)
+- [nano-GPT](https://github.com/karpathy/nanoGPT)

@@ -7,7 +7,7 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(self, num_heads, head_size, n_embd, dropout):
         super().__init__()
-        self.heads = nn.ModuleList([Head(head_size, n_embd=n_embd, dropout=dropout) for _ in range(num_heads)])
+        self.heads = nn.ModuleList([Head(head_size, n_embd, dropout) for _ in range(num_heads)])
         self.proj = nn.Linear(n_embd, n_embd)
         self.dropout = nn.Dropout(dropout)
 
@@ -24,25 +24,19 @@ class Head(nn.Module):
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
-        # self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
-
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):
-        B,T,C = x.shape
-        if mask == None:
-            mask = torch.ones((T, ), device=self.device) ## (1, T)
+        B, T, C = x.shape
         k = self.key(x)   # (B,T,C)
         q = self.query(x) # (B,T,C)
-        # compute attention scores ("affinities")
         wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) -> (B, T, T)
         if mask is not None:
             wei = wei.masked_fill(mask == 0, float('-inf'))
-        wei = F.softmax(wei, dim=-1) # (B, T, T)
+        wei = F.softmax(wei, dim=-1)
         wei = self.dropout(wei)
-        # perform the weighted aggregation of the values
-        v = self.value(x) # (B,T,C)
-        out = wei @ v # (B, T, T) @ (B, T, C) -> (B, T, C)
+        v = self.value(x)
+        out = wei @ v
         return out
 
 class FeedFoward(nn.Module):

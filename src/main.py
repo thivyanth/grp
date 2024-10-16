@@ -8,8 +8,13 @@ import wandb
 
 @hydra.main(config_path="../conf", config_name="grp_config")
 def main(cfg):
-    print("Configuration:", OmegaConf.to_yaml(cfg))
+    
+    # Control Panel
+    cfg.debug = True
+    cfg.training.batch_size = 4
 
+    print("Configuration:", OmegaConf.to_yaml(cfg))
+    
     # Set up device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")

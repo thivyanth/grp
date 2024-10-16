@@ -29,3 +29,10 @@ class Transformer(nn.Module):
         for block in self.blocks:
             x = block(x, mask)
         return x
+
+def get_patches_fast(images):
+    from einops import rearrange
+    batch_size, channels, height, width = images.shape
+    patch_size = height // 8  # n_patches = 8
+    patches = rearrange(images, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_size, p2=patch_size)
+    return patches
