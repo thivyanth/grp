@@ -26,7 +26,7 @@ def main(cfg: DictConfig):
     
     if not cfg.testing:
         import wandb
-        wandb.init(project="mini-grp-continuous", config=OmegaConf.to_container(cfg))
+        wandb.init(project="grp", config=OmegaConf.to_container(cfg))
         wandb.run.log_code(".")
     
     model = GRP(dataset_tmp, cfg).to(device)

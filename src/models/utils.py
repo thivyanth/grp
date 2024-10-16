@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from data_loader import get_batch_grp
 
 def calc_positional_embeddings(sequence_length, d):
     result = torch.ones(sequence_length, d)

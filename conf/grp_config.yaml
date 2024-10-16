@@ -19,7 +19,7 @@ batch_size: 512 # how many independent sequences will we process in parallel?
 block_size: 32 # what is the maximum context length for predictions?
 vocab_size: 32
 n_patches: 8
-max_iters: 50000
+max_iters: 500 # 50000
 eval_interval: 100
 learning_rate: 5e-5
 eval_iters: 200
