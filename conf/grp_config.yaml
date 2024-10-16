@@ -24,9 +24,10 @@ model:
   num_heads: 8
   num_blocks: 6
   dropout: 0.1
-  stoi: {}
+  patch_size: 8
 
 stoi: {}  # This will be populated in the code
+itos: {}  # This will be populated in the code
 
 action_dim: 7  # Adjust based on your robot's action space
 
@@ -41,12 +42,19 @@ training:
   learning_rate: 1e-4
   eval_interval: 100
   max_iters: 10000
+  save_interval: 1000
+
+output_dir: './checkpoints'
 
 # Data configuration
 data:
-  dataset: EleutherAI/cifarnet
+  dataset: gberseth/mini-bridge-mini64pix
   image_shape: [64, 64, 3]
-  block_size: 32  # Maximum length for text goals
+  block_size: 32
+  vocab_size: 32
+  n_patches: 8
+  action_bins: 10
+  action_dim: 6
 
 # Device configuration
 device: "cuda"

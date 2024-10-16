@@ -40,3 +40,8 @@ I'm working on resolving issues, understanding and improving the model.
 - [ ] Complete debugging of the main training loop
 - [ ] Implement evaluation in a simulation environment
 - [ ] Implement logging and visualization tools
+
+## Extra Challenges
+
+- [ ] Incorporate Diffusion Models
+- [ ] Use Advanced Text Tokenization
